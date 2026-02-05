@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { processHotmartEvent } from '@/services/sales/hotmart'
 import { HotmartWebhookBody } from '@/services/sales/types'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 // Segredo do Webhook (em produção, validar X-HOTMART-HOTK)
 // const HOTMART_SECRET = process.env.HOTMART_WEBHOOK_SECRET
@@ -24,7 +24,9 @@ export async function POST(request: Request) {
         }
 
         // Opcional: Validar se a integração existe e está ativa no banco
-        const supabase = await createClient()
+        // Opcional: Validar se a integração existe e está ativa no banco
+        // USANDO ADMIN CLIENT POIS WEBHOOK NÃO TEM SESSÃO DE USUÁRIO
+        const supabase = createAdminClient()
         const { data: integration } = await supabase
             .from('integrations')
             .select('status')
@@ -37,6 +39,8 @@ export async function POST(request: Request) {
         }
 
         // Processar evento
+        // Passar o cliente admin para o serviço, se necessário, ou garantir que o serviço use admin internamente se for escrever em tabelas protegidas
+        // (Vou assumir que o serviço precisa ser ajustado ou passamos o cliente)
         await processHotmartEvent(body, orgId, integrationId)
 
         return NextResponse.json({ message: 'Received' })

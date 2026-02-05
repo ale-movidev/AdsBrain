@@ -1,23 +1,10 @@
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { HotmartWebhookBody } from "./types"
 
-/**
- * Normalizes Hotmart status to our internal simplified status
- */
-function normalizeStatus(hotmartStatus: string): string {
-    const map: Record<string, string> = {
-        APPROVED: 'approved',
-        COMPLETE: 'approved',
-        REFUNDED: 'refunded',
-        CHARGEBACK: 'chargeback',
-        CANCELLED: 'cancelled',
-        EXPIRED: 'cancelled'
-    }
-    return map[hotmartStatus] || 'pending'
-}
+// ... (existing code)
 
 export async function processHotmartEvent(payload: HotmartWebhookBody, organizationId: string, integrationId: string) {
-    const supabase = await createClient()
+    const supabase = createAdminClient()
 
     const { data } = payload
     const { purchase, buyer, product } = data
