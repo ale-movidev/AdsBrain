@@ -34,6 +34,7 @@ export function HotmartTutorialSheet({ webhookUrl }: { webhookUrl: string }) {
             </SheetTrigger>
             <SheetContent className="w-full sm:max-w-md md:max-w-[540px]">
                 <SheetHeader>
+                    {/* Titulo */}
                     <SheetTitle>Configuração Hotmart</SheetTitle>
                     <SheetDescription>
                         Siga o passo a passo para conectar suas vendas automaticamente.
