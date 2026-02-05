@@ -14,6 +14,7 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog"
+import { HotmartTutorialSheet } from "./hotmart-tutorial"
 
 interface Integration {
     id: string
@@ -83,7 +84,10 @@ export function IntegrationList({ existingIntegrations, orgId }: { existingInteg
                                 <div className="p-2 bg-muted rounded-md text-xs break-all border font-mono">
                                     {getHotmartUrl(integrations.find(i => i.provider === 'hotmart')!.id)}
                                 </div>
-                                <p className="text-[10px] text-muted-foreground">Copie esta URL e configure no Webhook da Hotmart (Eventos: Compra Aprovada, Reembolso).</p>
+                                <div className="flex justify-between items-center">
+                                    <p className="text-[10px] text-muted-foreground mr-2">Copie a URL</p>
+                                    <HotmartTutorialSheet webhookUrl={getHotmartUrl(integrations.find(i => i.provider === 'hotmart')!.id)} />
+                                </div>
                             </div>
                         ) : (
                             <Badge variant="secondary">Não conectado</Badge>
