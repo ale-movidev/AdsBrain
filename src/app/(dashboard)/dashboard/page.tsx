@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 
+import { SyncButton } from './sync-button'
+
 export default async function DashboardPage() {
     const supabase = await createClient()
 
@@ -23,10 +25,11 @@ export default async function DashboardPage() {
     const orgId = orgMember?.organization_id
 
     // 2. Fetch Data (Parallel)
-    const today = new Date().toISOString().split('T')[0]
+    // Removed "today" filter to show ALL TIME sales as requested
+    // const today = new Date().toISOString().split('T')[0]
 
     const [salesRes, campaignsRes, insightsRes] = await Promise.all([
-        orgId ? supabase.from('sales').select('amount').eq('organization_id', orgId).gte('created_at', today) : { data: [] },
+        orgId ? supabase.from('sales').select('amount').eq('organization_id', orgId) : { data: [] },
         orgId ? supabase.from('campaigns').select('spend').eq('organization_id', orgId) : { data: [] }, // Spend is cumulative for now or last_3d from cron
         orgId ? supabase.from('insights').select('*').eq('organization_id', orgId).order('created_at', { ascending: false }).limit(5) : { data: [] }
     ])
@@ -44,18 +47,20 @@ export default async function DashboardPage() {
         <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
             <div className="flex items-center justify-between space-y-2 mt-4">
                 <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
-                {/* Calendar Widget or Global Filter could go here */}
+                <div className="flex items-center space-x-2">
+                    <SyncButton />
+                </div>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <div className="rounded-xl border bg-card text-card-foreground shadow p-6">
                     <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <h3 className="tracking-tight text-sm font-medium text-muted-foreground">Vendas Hoje</h3>
+                        <h3 className="tracking-tight text-sm font-medium text-muted-foreground">Vendas (Total)</h3>
                     </div>
                     <div className="text-2xl font-bold">
                         {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(salesTotal)}
                     </div>
-                    <p className="text-xs text-muted-foreground">Atualizado em tempo real</p>
+                    <p className="text-xs text-muted-foreground">Todo o período</p>
                 </div>
                 <div className="rounded-xl border bg-card text-card-foreground shadow p-6">
                     <div className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -110,7 +115,7 @@ export default async function DashboardPage() {
                                 insights.map((insight: any) => (
                                     <div key={insight.id} className="flex items-start gap-4 p-3 rounded-lg hover:bg-muted/50 transition-colors">
                                         <div className={`h-2 w-2 mt-2 shrink-0 rounded-full ${insight.type === 'alert' ? 'bg-red-500' :
-                                                insight.type === 'campaign_recommendation' ? 'bg-green-500' : 'bg-blue-500'
+                                            insight.type === 'campaign_recommendation' ? 'bg-green-500' : 'bg-blue-500'
                                             }`} />
                                         <div className="space-y-1">
                                             <p className="text-sm font-medium leading-none">{insight.title}</p>
