@@ -1,7 +1,22 @@
+'use client'
+
 import Link from "next/link"
+import { useActionState, useEffect } from "react"
 import { login, signup } from "./actions"
+import { AlertCircle, Loader2 } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+
+const initialState = {
+    error: '',
+}
 
 export default function LoginPage() {
+    const [loginState, loginAction, isLoginPending] = useActionState(login, initialState)
+    const [signupState, signupAction, isSignupPending] = useActionState(signup, initialState)
+
+    // Combine errors or prioritized one
+    const error = loginState?.error || signupState?.error
+
     return (
         <div className="min-h-screen grid lg:grid-cols-2">
             {/* Left: Login Form */}
@@ -15,6 +30,14 @@ export default function LoginPage() {
                             Entre na sua conta para acessar o dashboard.
                         </p>
                     </div>
+
+                    {error && (
+                        <Alert variant="destructive">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertTitle>Erro</AlertTitle>
+                            <AlertDescription>{error}</AlertDescription>
+                        </Alert>
+                    )}
 
                     <form className="space-y-6">
                         <div className="space-y-2">
@@ -50,12 +73,34 @@ export default function LoginPage() {
                             />
                         </div>
 
+                        <div className="space-y-2 hidden">
+                            {/* Hidden input for full name if we want to support it in same form, 
+                    but signup action expects it. Let's add it if user clicks signup? 
+                    For MVP simpler to just ask for it or allow partial signup.
+                    Let's add a conditional visibility or just generic input.
+                 */}
+                            <label
+                                htmlFor="fullName"
+                                className="text-sm font-medium leading-none"
+                            >
+                                Nome Completo (apenas para cadastro)
+                            </label>
+                            <input
+                                id="fullName"
+                                name="fullName"
+                                type="text"
+                                className="flex h-10 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm"
+                            />
+                        </div>
+
                         <div className="flex flex-col gap-3">
                             <button
                                 type="submit"
-                                formAction={login}
+                                formAction={loginAction}
+                                disabled={isLoginPending || isSignupPending}
                                 className="inline-flex items-center justify-center whitespace-nowrap rounded-full text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 w-full"
                             >
+                                {isLoginPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                                 Entrar
                             </button>
                             <div className="relative">
@@ -70,9 +115,11 @@ export default function LoginPage() {
                             </div>
                             <button
                                 type="submit"
-                                formAction={signup}
+                                formAction={signupAction}
+                                disabled={isLoginPending || isSignupPending}
                                 className="inline-flex items-center justify-center whitespace-nowrap rounded-full text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 w-full"
                             >
+                                {isSignupPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                                 Criar conta
                             </button>
                         </div>

@@ -92,7 +92,16 @@ export function IntegrationList({ existingIntegrations, orgId }: { existingInteg
                     <Badge variant="secondary">Em breve</Badge>
                 </CardContent>
                 <CardFooter>
-                    <Button variant="outline" className="w-full" disabled>Conectar Meta</Button>
+                    {integrations.find(i => i.provider === 'meta_ads') ? (
+                        <Button variant="outline" className="w-full" disabled>Conectado</Button>
+                    ) : (
+                        <div className="w-full">
+                            {/* We use specific route for Meta OAuth */}
+                            <Button className="w-full bg-[#0668E1] hover:bg-[#0668E1]/90 text-white" onClick={() => window.location.href = '/auth/meta'}>
+                                Conectar Meta Ads
+                            </Button>
+                        </div>
+                    )}
                 </CardFooter>
             </Card>
         </div>

@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation'
 
 import { createClient } from '@/lib/supabase/server'
 
-export async function login(formData: FormData) {
+export async function login(prevState: any, formData: FormData) {
     const supabase = await createClient()
 
     const email = formData.get('email') as string
@@ -24,12 +24,17 @@ export async function login(formData: FormData) {
     redirect('/dashboard')
 }
 
-export async function signup(formData: FormData) {
+export async function signup(prevState: any, formData: FormData) {
     const supabase = await createClient()
 
     const email = formData.get('email') as string
     const password = formData.get('password') as string
     const fullName = formData.get('fullName') as string
+
+    // Check if fullName is provided
+    if (!fullName) {
+        return { error: 'Nome completo é obrigatório.' }
+    }
 
     const { error } = await supabase.auth.signUp({
         email,
