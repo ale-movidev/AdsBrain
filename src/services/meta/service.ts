@@ -17,6 +17,28 @@ export interface MetaAdAccount {
     timezone_name: string
 }
 
+export interface MetaCampaign {
+    id: string
+    name: string
+    status: string
+    daily_budget?: string
+    lifetime_budget?: string
+}
+
+export interface MetaInsight {
+    campaign_id?: string
+    ad_id?: string
+    clicks: string
+    spend: string
+    impressions: string
+    cpc?: string
+    ctr?: string
+    roas?: string // Custom metric or derived
+    actions?: any[]
+    date_start: string
+    date_stop: string
+}
+
 export class MetaService {
     private accessToken: string
 
@@ -26,7 +48,7 @@ export class MetaService {
 
     static getAuthUrl(state: string, redirectUri: string) {
         const clientId = process.env.META_CLIENT_ID
-        const scope = 'ads_read,ads_management,read_insights' // Ajustar escopos conforme necessário
+        const scope = 'ads_read,ads_management,read_insights'
         return `https://www.facebook.com/${FB_API_VERSION}/dialog/oauth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&scope=${scope}`
     }
 
@@ -45,8 +67,6 @@ export class MetaService {
     }
 
     async getAdAccounts(): Promise<MetaAdAccount[]> {
-        // Busca contas de anúncio do usuário
-        // Campos: name, currency, timezone_name
         const res = await fetch(`${FB_BASE_URL}/${FB_API_VERSION}/me/adaccounts?fields=name,account_id,currency,timezone_name&access_token=${this.accessToken}`)
 
         if (!res.ok) {
@@ -58,11 +78,24 @@ export class MetaService {
         return json.data || []
     }
 
-    async getInsights(adAccountId: string, datePreset = 'last_7d') {
+    async getCampaigns(adAccountId: string): Promise<MetaCampaign[]> {
         const accountId = adAccountId.startsWith('act_') ? adAccountId : `act_${adAccountId}`
-        const fields = 'campaign_name,clicks,spend,impressions,cpc,ctr,roas,actions'
+        const fields = 'name,status,daily_budget,lifetime_budget'
+        const res = await fetch(`${FB_BASE_URL}/${FB_API_VERSION}/${accountId}/campaigns?fields=${fields}&limit=500&access_token=${this.accessToken}`)
 
-        const res = await fetch(`${FB_BASE_URL}/${FB_API_VERSION}/${accountId}/insights?date_preset=${datePreset}&fields=${fields}&access_token=${this.accessToken}`)
+        if (!res.ok) {
+            console.error(await res.json())
+            return []
+        }
+        const json = await res.json()
+        return json.data || []
+    }
+
+    async getInsights(adAccountId: string, level: 'account' | 'campaign' | 'ad' = 'campaign', datePreset = 'last_7d'): Promise<MetaInsight[]> {
+        const accountId = adAccountId.startsWith('act_') ? adAccountId : `act_${adAccountId}`
+        const fields = 'campaign_id,ad_id,clicks,spend,impressions,cpc,ctr,actions' // roas needs action_values usually
+
+        const res = await fetch(`${FB_BASE_URL}/${FB_API_VERSION}/${accountId}/insights?level=${level}&date_preset=${datePreset}&fields=${fields}&limit=500&access_token=${this.accessToken}`)
 
         if (!res.ok) {
             console.error(await res.json())
