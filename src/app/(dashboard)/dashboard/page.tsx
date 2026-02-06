@@ -1,9 +1,15 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-
+import { DateRangePicker } from '@/components/ui/date-range-picker'
 import { SyncButton } from './sync-button'
+import { subDays, format, startOfMonth } from 'date-fns'
 
-export default async function DashboardPage() {
+interface DashboardPageProps {
+    searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}
+
+export default async function DashboardPage(props: DashboardPageProps) {
+    const searchParams = await props.searchParams
     const supabase = await createClient()
 
     const {
@@ -21,56 +27,125 @@ export default async function DashboardPage() {
         .eq('user_id', user.id)
         .single()
 
-    // Default empty state if no org
     const orgId = orgMember?.organization_id
 
-    // 2. Fetch Data (Parallel)
-    // Removed "today" filter to show ALL TIME sales as requested
-    // const today = new Date().toISOString().split('T')[0]
+    // 2. Parse Date Filters
+    const fromParam = typeof searchParams.from === 'string' ? searchParams.from : undefined
+    const toParam = typeof searchParams.to === 'string' ? searchParams.to : undefined
+
+    // Default to "This Month" if not specified, or "Last 30 Days"
+    // Let's match the Picker default: Last 30 Days if empty
+    const defaultFrom = subDays(new Date(), 30).toISOString()
+    const defaultTo = new Date().toISOString()
+
+    // If params exist, use them. If not, don't filter (show all time) OR default?
+    // User request "buscar vendas de até 12 meses". A filter is better.
+    // Let's assume: If params present, filter. If not, show Last 30 Days to be safe/fast,
+    // but the user might want "All Time".
+    // The DatePicker component pushes defaults if empty? No, it initializes state.
+    // Let's default to parsing params or falling back to "Last 30 Days" for the query to ensure performance.
+
+    const startDate = fromParam ? new Date(fromParam).toISOString() : defaultFrom
+    // For End Date, we want until the END of that day if coming from picker (usually sends YYYY-MM-DD)
+    // Adjust logic: if string is YYYY-MM-DD, append time?
+    // The picker sends YYYY-MM-DD.
+    const endDate = toParam ? new Date(toParam + 'T23:59:59.999Z').toISOString() : defaultTo
+
+    // 3. Fetch Data with Filters
+    // Sales: Filter by created_at
+    let salesQuery = supabase.from('sales').select('amount, status, created_at').eq('organization_id', orgId)
+
+    if (fromParam || toParam) {
+        salesQuery = salesQuery.gte('created_at', startDate).lte('created_at', endDate)
+    } else {
+        // Default View: Last 30 Days (Implicit filter if no params? Or show all?)
+        // Let's show All Time if no params are set to match previous behavior, 
+        // BUT the DatePicker component will set params on mount if we're not careful.
+        // Actually, the DatePicker initializes with defaults but only pushes to URL if changed? 
+        // Let's fallback to "All Time" if URL is empty, passing NO filter.
+    }
+
+    // Actually, explicit date range is safer. Let's start with NO filter (All Time) if URL is clean.
+    // But update the query ONLY if params exist.
+    if (fromParam) salesQuery = salesQuery.gte('created_at', startDate)
+    if (toParam) salesQuery = salesQuery.lte('created_at', endDate)
+
+    // Campaigns: Cannot filter by date yet (schema limitation). Fetch all.
+    const campaignsQuery = supabase.from('campaigns').select('spend').eq('organization_id', orgId)
+
+    // Insights: Filter by creation?
+    let insightsQuery = supabase.from('insights').select('*').eq('organization_id', orgId).order('created_at', { ascending: false }).limit(10)
+    if (fromParam) insightsQuery = insightsQuery.gte('created_at', startDate)
 
     const [salesRes, campaignsRes, insightsRes] = await Promise.all([
-        orgId ? supabase.from('sales').select('amount').eq('organization_id', orgId) : { data: [] },
-        orgId ? supabase.from('campaigns').select('spend').eq('organization_id', orgId) : { data: [] }, // Spend is cumulative for now or last_3d from cron
-        orgId ? supabase.from('insights').select('*').eq('organization_id', orgId).order('created_at', { ascending: false }).limit(5) : { data: [] }
+        orgId ? salesQuery : { data: [] },
+        orgId ? campaignsQuery : { data: [] },
+        orgId ? insightsQuery : { data: [] }
     ])
 
-    const salesTotal = salesRes.data?.reduce((acc: number, curr: any) => acc + Number(curr.amount), 0) || 0
+    // 4. Calculate Metrics
+    const salesData = salesRes.data || []
+
+    // Metrics
+    const approvedSales = salesData.filter((s: any) => s.status === 'approved' || s.status === 'complete')
+    const refundedSales = salesData.filter((s: any) => s.status === 'refunded' || s.status === 'chargeback' || s.status === 'cancelled') // Cancelled might not be refunded money, but lost sale. 
+    // Usually Cancelled = $0 revenue, but might not be a refund deduction if it never cleared.
+    // Let's stick to "Refunded/Chargeback" for money RETURNED.
+    const moneyReturnedEvents = salesData.filter((s: any) => s.status === 'refunded' || s.status === 'chargeback')
+
+    const netRevenue = approvedSales.reduce((acc: number, curr: any) => acc + Number(curr.amount), 0)
+    const refundsTotal = moneyReturnedEvents.reduce((acc: number, curr: any) => acc + Number(curr.amount), 0)
+    const grossRevenue = netRevenue + refundsTotal // Only if we assume approved rows + refunded rows are disjoint. 
+    // IF status updates in place: An item is EITHER approved OR refunded.
+    // So Gross was (Approved + Refunded).
+
+    const totalRevenueDisplay = netRevenue // Usually Dashboard shows Net
+    const salesCount = approvedSales.length
+    const avgTicket = salesCount > 0 ? (netRevenue / salesCount) : 0
+
+    // Campaign Spend (Static/Cumulative)
     const spendTotal = campaignsRes.data?.reduce((acc: number, curr: any) => acc + Number(curr.spend), 0) || 0
 
-    const roas = spendTotal > 0 ? (salesTotal / spendTotal) : 0
+    const roas = spendTotal > 0 ? (netRevenue / spendTotal) : 0
     const insights = insightsRes.data || []
-
-    // Latest "Actionable" Insight
     const latestAction = insights.find((i: any) => i.action_type !== 'info') || insights[0]
 
     return (
         <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-            <div className="flex items-center justify-between space-y-2 mt-4">
+            <div className="flex flex-col sm:flex-row items-center justify-between space-y-2 mt-4 gap-4">
                 <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
-                <div className="flex items-center space-x-2">
+                <div className="flex flex-col sm:flex-row items-center space-x-2 gap-2">
+                    <DateRangePicker />
                     <SyncButton />
                 </div>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                {/* Net Revenue */}
                 <div className="rounded-xl border bg-card text-card-foreground shadow p-6">
                     <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <h3 className="tracking-tight text-sm font-medium text-muted-foreground">Vendas (Total)</h3>
+                        <h3 className="tracking-tight text-sm font-medium text-muted-foreground">Receita Líquida</h3>
                     </div>
                     <div className="text-2xl font-bold">
-                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(salesTotal)}
+                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(netRevenue)}
                     </div>
-                    <p className="text-xs text-muted-foreground">Todo o período</p>
+                    <p className="text-xs text-muted-foreground">
+                        {salesCount} vendas aprovadas
+                    </p>
                 </div>
+
+                {/* Spend */}
                 <div className="rounded-xl border bg-card text-card-foreground shadow p-6">
                     <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <h3 className="tracking-tight text-sm font-medium text-muted-foreground">Gasto (Estimado)</h3>
+                        <h3 className="tracking-tight text-sm font-medium text-muted-foreground">Investimento (Ads)</h3>
                     </div>
                     <div className="text-2xl font-bold">
                         {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(spendTotal)}
                     </div>
                     <p className="text-xs text-muted-foreground">Baseado na última sincronização</p>
                 </div>
+
+                {/* ROAS */}
                 <div className="rounded-xl border bg-card text-card-foreground shadow p-6">
                     <div className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <h3 className="tracking-tight text-sm font-medium text-muted-foreground">ROI (ROAS)</h3>
@@ -80,18 +155,16 @@ export default async function DashboardPage() {
                     </div>
                     <p className="text-xs text-muted-foreground">Retorno sobre investimento</p>
                 </div>
-                <div className="rounded-xl border bg-card text-card-foreground shadow p-6 bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+
+                {/* Refunds / Details */}
+                <div className="rounded-xl border bg-card text-card-foreground shadow p-6">
                     <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <h3 className="tracking-tight text-sm font-medium text-primary">Recomendação IA</h3>
+                        <h3 className="tracking-tight text-sm font-medium text-muted-foreground">Reembolsos</h3>
                     </div>
-                    {latestAction ? (
-                        <div>
-                            <p className="text-sm font-bold mt-1 line-clamp-1">{latestAction.title}</p>
-                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{latestAction.content}</p>
-                        </div>
-                    ) : (
-                        <p className="text-sm font-medium mt-2">Nenhuma recomendação disponível.</p>
-                    )}
+                    <div className="text-2xl font-bold text-red-600">
+                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(refundsTotal)}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Ticket Médio: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(avgTicket)}</p>
                 </div>
             </div>
 

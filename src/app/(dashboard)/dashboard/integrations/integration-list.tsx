@@ -5,7 +5,7 @@ import { PlusCircle, CheckCircle2, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { createIntegration } from './actions'
+import { createIntegration, triggerHistoricalSync } from './actions'
 import {
     Dialog,
     DialogContent,
@@ -29,16 +29,26 @@ export function IntegrationList({ existingIntegrations, orgId }: { existingInteg
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState('')
 
-    const handleConnect = async (provider: string, name: string) => {
+    const handleConnect = async (provider: string, name: string, formData?: FormData) => {
         setIsLoading(true)
         setError('')
 
         try {
-            const formData = new FormData()
-            formData.append('provider', provider)
-            formData.append('name', name)
+            const data = new FormData()
+            data.append('provider', provider)
+            data.append('name', name)
+            if (formData) {
+                // Merge form data
+                const clientId = formData.get('client_id');
+                const clientSecret = formData.get('client_secret');
+                const basicToken = formData.get('basic_token');
 
-            const result = await createIntegration(formData)
+                if (clientId) data.append('client_id', clientId);
+                if (clientSecret) data.append('client_secret', clientSecret);
+                if (basicToken) data.append('basic_token', basicToken);
+            }
+
+            const result = await createIntegration(data)
 
             if (result?.error) {
                 setError(result.error)
@@ -95,11 +105,70 @@ export function IntegrationList({ existingIntegrations, orgId }: { existingInteg
                     </CardContent>
                     <CardFooter>
                         {integrations.find(i => i.provider === 'hotmart') ? (
-                            <Button variant="outline" className="w-full" disabled>Configurado</Button>
+                            <div className="w-full space-y-2">
+                                <Button variant="outline" className="w-full mb-2" disabled>Configurado</Button>
+                                <Button
+                                    variant="secondary"
+                                    className="w-full"
+                                    onClick={async () => {
+                                        const intId = integrations.find(i => i.provider === 'hotmart')?.id
+                                        if (!intId) return
+                                        const confirm = window.confirm('Deseja importar as vendas dos últimos 12 meses? Isso pode levar alguns segundos.')
+                                        if (!confirm) return
+
+                                        setIsLoading(true)
+                                        try {
+                                            const res = await triggerHistoricalSync(intId)
+                                            if ('error' in res) {
+                                                setError(res.error)
+                                            } else {
+                                                alert(`Importação concluída! Processados: ${res.processed}, Erros: ${res.errors}`)
+                                            }
+                                        } finally {
+                                            setIsLoading(false)
+                                        }
+                                    }}
+                                    disabled={isLoading}
+                                >
+                                    {isLoading ? 'Importando...' : 'Importar Histórico (12 meses)'}
+                                </Button>
+                            </div>
                         ) : (
-                            <Button className="w-full" disabled={isLoading} onClick={() => handleConnect('hotmart', 'Minha Hotmart')}>
-                                {isLoading ? 'Conectando...' : 'Conectar Hotmart'}
-                            </Button>
+                            <Dialog>
+                                <DialogTrigger asChild>
+                                    <Button className="w-full">Conectar Hotmart</Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                    <DialogHeader>
+                                        <DialogTitle>Conectar Hotmart</DialogTitle>
+                                        <DialogDescription>
+                                            Integre suas vendas em tempo real e importe dados passados.
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                    <form action={async (formData) => {
+                                        setIsLoading(true);
+                                        await handleConnect('hotmart', 'Minha Hotmart', formData);
+                                        // Wait handling logic is in handleConnect
+                                    }} className="space-y-4">
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium leading-none">Client ID</label>
+                                            <input name="client_id" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background" placeholder="Ex: e64f8c..." required />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium leading-none">Client Secret</label>
+                                            <input name="client_secret" type="password" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background" placeholder="Ex: a1b2c3..." required />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium leading-none">Basic Token (Opcional)</label>
+                                            <input name="basic_token" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background" placeholder="Basic ..." />
+                                            <p className="text-[10px] text-muted-foreground">Se já tiver o token Basic gerado.</p>
+                                        </div>
+                                        <Button type="submit" className="w-full" disabled={isLoading}>
+                                            {isLoading ? 'Salvando...' : 'Salvar Integração'}
+                                        </Button>
+                                    </form>
+                                </DialogContent>
+                            </Dialog>
                         )}
                     </CardFooter>
                 </Card>

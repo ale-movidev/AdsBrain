@@ -8,6 +8,17 @@ export async function createIntegration(formData: FormData) {
     const provider = formData.get('provider') as string
     const name = formData.get('name') as string
 
+    // Credentials
+    const clientId = formData.get('client_id') as string | null
+    const clientSecret = formData.get('client_secret') as string | null
+    const basicToken = formData.get('basic_token') as string | null
+
+    const credentials = (clientId || clientSecret || basicToken) ? {
+        client_id: clientId,
+        client_secret: clientSecret,
+        basic_token: basicToken
+    } : null
+
     // Get current user
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { error: 'Unauthorized' }
@@ -52,7 +63,8 @@ export async function createIntegration(formData: FormData) {
             organization_id: orgId,
             provider,
             name,
-            status: 'active' // For webhooks we just activate and wait for events
+            status: 'active', // For webhooks we just activate and wait for events
+            credentials
         })
         .select()
         .single()
@@ -61,6 +73,41 @@ export async function createIntegration(formData: FormData) {
 
     revalidatePath('/dashboard/integrations')
     return { success: true, data }
+}
+
+import { syncHotmartHistory } from '@/services/sales/hotmart-sync'
+
+export async function triggerHistoricalSync(integrationId: string) {
+    const supabase = await createClient()
+
+    // Check permission
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Unauthorized' }
+
+    // Fetch integration securely
+    const { data: integration } = await supabase
+        .from('integrations')
+        .select('*')
+        .eq('id', integrationId)
+        .single()
+
+    if (!integration) return { error: 'Integration not found' }
+
+    // Verify Org Membership (RLS might handle this but good to be explicit for actions)
+    // Here we assume if they can read the integration via RLS, they are members.
+
+    try {
+        const result = await syncHotmartHistory(
+            integration.id,
+            integration.organization_id,
+            integration.credentials
+        )
+        revalidatePath('/dashboard')
+        return result
+    } catch (e: any) {
+        console.error('Sync failed:', e)
+        return { error: e.message }
+    }
 }
 
 export async function getIntegrations() {

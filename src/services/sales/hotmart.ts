@@ -4,7 +4,7 @@ import { HotmartWebhookBody } from "./types"
 /**
  * Normalizes Hotmart status to our internal simplified status
  */
-function normalizeStatus(hotmartStatus: string): string {
+export function normalizeStatus(hotmartStatus: string): string {
     const map: Record<string, string> = {
         APPROVED: 'approved',
         COMPLETE: 'approved',
