@@ -75,34 +75,45 @@ export function DateRangePicker({
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="end">
                     <div className="flex">
-                        <div className="flex flex-col gap-2 p-3 border-r border-border">
-                            <div className="text-xs font-medium text-muted-foreground mb-1">Períodos</div>
-                            <Button variant="ghost" size="sm" className="justify-start text-xs font-normal"
+                        <div className="flex flex-col p-2 space-y-1 border-r border-border min-w-[140px]">
+                            <div className="text-xs font-semibold text-muted-foreground mb-2 px-2">Períodos</div>
+
+                            <Button variant="ghost" size="sm" className="justify-start text-xs font-normal h-8 px-2 w-full"
+                                onClick={() => setDate({ from: new Date(), to: new Date() })}
+                            >
+                                Hoje
+                            </Button>
+                            <Button variant="ghost" size="sm" className="justify-start text-xs font-normal h-8 px-2 w-full"
+                                onClick={() => setDate({ from: subDays(new Date(), 1), to: subDays(new Date(), 1) })}
+                            >
+                                Ontem
+                            </Button>
+                            <Button variant="ghost" size="sm" className="justify-start text-xs font-normal h-8 px-2 w-full"
                                 onClick={() => setDate({ from: subDays(new Date(), 7), to: new Date() })}
                             >
                                 Últimos 7 dias
                             </Button>
-                            <Button variant="ghost" size="sm" className="justify-start text-xs font-normal"
+                            <Button variant="ghost" size="sm" className="justify-start text-xs font-normal h-8 px-2 w-full"
                                 onClick={() => setDate({ from: subDays(new Date(), 15), to: new Date() })}
                             >
                                 Últimos 15 dias
                             </Button>
-                            <Button variant="ghost" size="sm" className="justify-start text-xs font-normal"
+                            <Button variant="ghost" size="sm" className="justify-start text-xs font-normal h-8 px-2 w-full"
                                 onClick={() => setDate({ from: subDays(new Date(), 30), to: new Date() })}
                             >
                                 Últimos 30 dias
                             </Button>
-                            <Button variant="ghost" size="sm" className="justify-start text-xs font-normal"
+                            <Button variant="ghost" size="sm" className="justify-start text-xs font-normal h-8 px-2 w-full"
                                 onClick={() => setDate({ from: subDays(new Date(), 90), to: new Date() })}
                             >
                                 Últimos 3 meses
                             </Button>
-                            <Button variant="ghost" size="sm" className="justify-start text-xs font-normal"
+                            <Button variant="ghost" size="sm" className="justify-start text-xs font-normal h-8 px-2 w-full"
                                 onClick={() => setDate({ from: subDays(new Date(), 180), to: new Date() })}
                             >
                                 Últimos 6 meses
                             </Button>
-                            <Button variant="ghost" size="sm" className="justify-start text-xs font-normal"
+                            <Button variant="ghost" size="sm" className="justify-start text-xs font-normal h-8 px-2 w-full"
                                 onClick={() => setDate({ from: subDays(new Date(), 365), to: new Date() })}
                             >
                                 Últimos 12 meses

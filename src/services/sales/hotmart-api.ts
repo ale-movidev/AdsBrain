@@ -47,21 +47,23 @@ export class HotmartApiClient {
     private basicToken?: string
 
     constructor(clientId: string, clientSecret: string, basicToken?: string) {
-        this.clientId = clientId
-        this.clientSecret = clientSecret
-        this.basicToken = basicToken
+        this.clientId = clientId.trim()
+        this.clientSecret = clientSecret.trim()
+        this.basicToken = basicToken?.trim()
     }
 
     private getBasicAuthHeader(): string {
-        if (this.basicToken) return `Basic ${this.basicToken}`
+        if (this.basicToken) {
+            const token = this.basicToken.startsWith('Basic ')
+                ? this.basicToken.split('Basic ')[1]
+                : this.basicToken
+            return `Basic ${token}`
+        }
         return `Basic ${Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64')}`
     }
 
     async getAccessToken(): Promise<string> {
-        const params = new URLSearchParams()
-        params.append('grant_type', 'client_credentials')
-        params.append('client_id', this.clientId)
-        params.append('client_secret', this.clientSecret)
+        // params removed as they were unused
 
         const res = await fetch(`${HOTMART_AUTH_URL}?grant_type=client_credentials`, {
             method: 'POST',
@@ -90,6 +92,8 @@ export class HotmartApiClient {
             const url = new URL(`${HOTMART_API_URL}/sales/history`)
             url.searchParams.append('start_date', startDate.toString())
             url.searchParams.append('end_date', endDate.toString())
+            // Request all statuses to capture refunds and chargebacks
+            url.searchParams.append('transaction_status', 'APPROVED,COMPLETE,REFUNDED,CHARGEBACK,CANCELLED,EXPIRED')
             if (nextPageToken) {
                 url.searchParams.append('page_token', nextPageToken)
             }
@@ -108,6 +112,12 @@ export class HotmartApiClient {
             }
 
             const data = await res.json() as HotmartHistoryResponse
+            console.log(`[HotmartAPI] Fetch URL: ${url.toString()}`)
+            console.log(`[HotmartAPI] Response items count: ${data.items ? data.items.length : 0}`)
+            if (data.items && data.items.length > 0) {
+                console.log(`[HotmartAPI] First item sample:`, JSON.stringify(data.items[0], null, 2))
+            }
+
             if (data.items) {
                 allSales = allSales.concat(data.items)
             }

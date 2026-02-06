@@ -12,11 +12,15 @@ export async function createIntegration(formData: FormData) {
     const clientId = formData.get('client_id') as string | null
     const clientSecret = formData.get('client_secret') as string | null
     const basicToken = formData.get('basic_token') as string | null
+    const accessToken = formData.get('access_token') as string | null
+    const adAccountId = formData.get('ad_account_id') as string | null
 
-    const credentials = (clientId || clientSecret || basicToken) ? {
-        client_id: clientId,
-        client_secret: clientSecret,
-        basic_token: basicToken
+    const credentials = (clientId || clientSecret || basicToken || accessToken || adAccountId) ? {
+        client_id: clientId?.trim(),
+        client_secret: clientSecret?.trim(),
+        basic_token: basicToken?.trim(),
+        access_token: accessToken?.trim(),
+        ad_account_id: adAccountId?.trim()
     } : null
 
     // Get current user
@@ -91,6 +95,7 @@ export async function createIntegration(formData: FormData) {
 }
 
 import { syncHotmartHistory } from '@/services/sales/hotmart-sync'
+import { syncMetaCampaigns } from '@/services/marketing/meta-sync'
 
 export async function triggerHistoricalSync(integrationId: string) {
     const supabase = await createClient()
@@ -108,15 +113,24 @@ export async function triggerHistoricalSync(integrationId: string) {
 
     if (!integration) return { error: 'Integration not found' }
 
-    // Verify Org Membership (RLS might handle this but good to be explicit for actions)
-    // Here we assume if they can read the integration via RLS, they are members.
-
     try {
-        const result = await syncHotmartHistory(
-            integration.id,
-            integration.organization_id,
-            integration.credentials
-        )
+        let result;
+        if (integration.provider === 'hotmart') {
+            result = await syncHotmartHistory(
+                integration.id,
+                integration.organization_id,
+                integration.credentials
+            )
+        } else if (integration.provider === 'meta_ads') {
+            result = await syncMetaCampaigns(
+                integration.id,
+                integration.organization_id,
+                integration.credentials
+            )
+        } else {
+            return { error: 'Provider not supported for sync' }
+        }
+
         revalidatePath('/dashboard')
         return result
     } catch (e: any) {

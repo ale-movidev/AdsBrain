@@ -35,40 +35,28 @@ export default async function DashboardPage(props: DashboardPageProps) {
 
     // Default to "This Month" if not specified, or "Last 30 Days"
     // Let's match the Picker default: Last 30 Days if empty
-    const defaultFrom = subDays(new Date(), 30).toISOString()
-    const defaultTo = new Date().toISOString()
+    // 3. Date Filter Logic
+    // If URL params exist, use them. 
+    // If NOT, default to "Last 30 Days" used to be the case, but user wants to see history.
+    // Let's stick to explicit params for filtering. If no params, SHOW ALL?
+    // User expectation for "Dashboard": usually "This Month" or "Last 30 Days".
+    // But for "Imported History", they want to see it.
+    // Let's change default to:
+    // If no params => "All Time" (effectively).
+    // Or better: The DatePicker controls this. 
 
-    // If params exist, use them. If not, don't filter (show all time) OR default?
-    // User request "buscar vendas de até 12 meses". A filter is better.
-    // Let's assume: If params present, filter. If not, show Last 30 Days to be safe/fast,
-    // but the user might want "All Time".
-    // The DatePicker component pushes defaults if empty? No, it initializes state.
-    // Let's default to parsing params or falling back to "Last 30 Days" for the query to ensure performance.
+    // CURRENT: defaultFrom = subDays(new Date(), 30).
+    // CHANGE: Let's rely on searchParams. If empty, NO FILTER on start date.
 
-    const startDate = fromParam ? new Date(fromParam).toISOString() : defaultFrom
-    // For End Date, we want until the END of that day if coming from picker (usually sends YYYY-MM-DD)
-    // Adjust logic: if string is YYYY-MM-DD, append time?
-    // The picker sends YYYY-MM-DD.
-    const endDate = toParam ? new Date(toParam + 'T23:59:59.999Z').toISOString() : defaultTo
+    const startDate = fromParam ? new Date(fromParam).toISOString() : null
+    const endDate = toParam ? new Date(toParam + 'T23:59:59.999Z').toISOString() : new Date().toISOString()
 
-    // 3. Fetch Data with Filters
+    // 4. Fetch Data with Filters
     // Sales: Filter by created_at
     let salesQuery = supabase.from('sales').select('amount, status, created_at').eq('organization_id', orgId)
 
-    if (fromParam || toParam) {
-        salesQuery = salesQuery.gte('created_at', startDate).lte('created_at', endDate)
-    } else {
-        // Default View: Last 30 Days (Implicit filter if no params? Or show all?)
-        // Let's show All Time if no params are set to match previous behavior, 
-        // BUT the DatePicker component will set params on mount if we're not careful.
-        // Actually, the DatePicker initializes with defaults but only pushes to URL if changed? 
-        // Let's fallback to "All Time" if URL is empty, passing NO filter.
-    }
-
-    // Actually, explicit date range is safer. Let's start with NO filter (All Time) if URL is clean.
-    // But update the query ONLY if params exist.
-    if (fromParam) salesQuery = salesQuery.gte('created_at', startDate)
-    if (toParam) salesQuery = salesQuery.lte('created_at', endDate)
+    if (startDate) salesQuery = salesQuery.gte('created_at', startDate)
+    if (endDate) salesQuery = salesQuery.lte('created_at', endDate)
 
     // Campaigns: Cannot filter by date yet (schema limitation). Fetch all.
     const campaignsQuery = supabase.from('campaigns').select('spend').eq('organization_id', orgId)
@@ -85,6 +73,8 @@ export default async function DashboardPage(props: DashboardPageProps) {
 
     // 4. Calculate Metrics
     const salesData = salesRes.data || []
+    console.log(`Dashboard Debug: OrgId=${orgId}, SalesFetched=${salesData.length}`)
+    if ('error' in salesRes && salesRes.error) console.error('Sales Query Error:', salesRes.error)
 
     // Metrics
     const approvedSales = salesData.filter((s: any) => s.status === 'approved' || s.status === 'complete')
