@@ -15,6 +15,7 @@ interface HotmartSale {
     status: string
     purchase: {
         order_date: number // milliseconds
+        status?: string
         price: {
             value: number
             currency_code: string
