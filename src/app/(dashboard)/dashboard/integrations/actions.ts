@@ -56,23 +56,38 @@ export async function createIntegration(formData: FormData) {
 
     const orgId = orgMember.organization_id
 
-    // Create integration
-    const { data, error } = await supabase
-        .from('integrations')
-        .insert({
+    // Create or Update integration
+    // We try to find existing one first to update it, or upsert based on (organization_id, provider) if unique constraint exists.
+    // Assuming unique(organization_id, provider).
+
+    // Check if exists
+    const { data: existing } = await supabase.from('integrations').select('id').eq('organization_id', orgId).eq('provider', provider).single()
+
+    let query = supabase.from('integrations')
+
+    if (existing) {
+        // Update
+        const { data, error } = await query.update({
+            name,
+            status: 'active',
+            credentials
+        }).eq('id', existing.id).select().single()
+        if (error) return { error: error.message }
+        revalidatePath('/dashboard/integrations')
+        return { success: true, data }
+    } else {
+        // Insert
+        const { data, error } = await query.insert({
             organization_id: orgId,
             provider,
             name,
-            status: 'active', // For webhooks we just activate and wait for events
+            status: 'active',
             credentials
-        })
-        .select()
-        .single()
-
-    if (error) return { error: error.message }
-
-    revalidatePath('/dashboard/integrations')
-    return { success: true, data }
+        }).select().single()
+        if (error) return { error: error.message }
+        revalidatePath('/dashboard/integrations')
+        return { success: true, data }
+    }
 }
 
 import { syncHotmartHistory } from '@/services/sales/hotmart-sync'

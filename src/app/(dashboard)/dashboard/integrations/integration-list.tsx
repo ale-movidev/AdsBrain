@@ -106,7 +106,40 @@ export function IntegrationList({ existingIntegrations, orgId }: { existingInteg
                     <CardFooter>
                         {integrations.find(i => i.provider === 'hotmart') ? (
                             <div className="w-full space-y-2">
-                                <Button variant="outline" className="w-full mb-2" disabled>Configurado</Button>
+                                <Dialog>
+                                    <DialogTrigger asChild>
+                                        <Button variant="outline" className="w-full mb-2">Editar Conexão</Button>
+                                    </DialogTrigger>
+                                    <DialogContent>
+                                        <DialogHeader>
+                                            <DialogTitle>Editar Conexão Hotmart</DialogTitle>
+                                            <DialogDescription>
+                                                Atualize suas credenciais para permitir a importação de dados.
+                                            </DialogDescription>
+                                        </DialogHeader>
+                                        <form action={async (formData) => {
+                                            setIsLoading(true);
+                                            await handleConnect('hotmart', 'Minha Hotmart', formData);
+                                        }} className="space-y-4">
+                                            <div className="space-y-2">
+                                                <label className="text-sm font-medium leading-none">Client ID</label>
+                                                <input name="client_id" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background" placeholder="Ex: e64f8c..." required />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-sm font-medium leading-none">Client Secret</label>
+                                                <input name="client_secret" type="password" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background" placeholder="Ex: a1b2c3..." required />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-sm font-medium leading-none">Basic Token (Opcional)</label>
+                                                <input name="basic_token" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background" placeholder="Basic ..." />
+                                                <p className="text-[10px] text-muted-foreground">Se já tiver o token Basic gerado.</p>
+                                            </div>
+                                            <Button type="submit" className="w-full" disabled={isLoading}>
+                                                {isLoading ? 'Salvando...' : 'Atualizar Integração'}
+                                            </Button>
+                                        </form>
+                                    </DialogContent>
+                                </Dialog>
                                 <Button
                                     variant="secondary"
                                     className="w-full"

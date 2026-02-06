@@ -74,15 +74,53 @@ export function DateRangePicker({
                     </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="end">
-                    <Calendar
-                        initialFocus
-                        mode="range"
-                        defaultMonth={date?.from}
-                        selected={date}
-                        onSelect={setDate}
-                        numberOfMonths={2}
-                        locale={ptBR}
-                    />
+                    <div className="flex">
+                        <div className="flex flex-col gap-2 p-3 border-r border-border">
+                            <div className="text-xs font-medium text-muted-foreground mb-1">Períodos</div>
+                            <Button variant="ghost" size="sm" className="justify-start text-xs font-normal"
+                                onClick={() => setDate({ from: subDays(new Date(), 7), to: new Date() })}
+                            >
+                                Últimos 7 dias
+                            </Button>
+                            <Button variant="ghost" size="sm" className="justify-start text-xs font-normal"
+                                onClick={() => setDate({ from: subDays(new Date(), 15), to: new Date() })}
+                            >
+                                Últimos 15 dias
+                            </Button>
+                            <Button variant="ghost" size="sm" className="justify-start text-xs font-normal"
+                                onClick={() => setDate({ from: subDays(new Date(), 30), to: new Date() })}
+                            >
+                                Últimos 30 dias
+                            </Button>
+                            <Button variant="ghost" size="sm" className="justify-start text-xs font-normal"
+                                onClick={() => setDate({ from: subDays(new Date(), 90), to: new Date() })}
+                            >
+                                Últimos 3 meses
+                            </Button>
+                            <Button variant="ghost" size="sm" className="justify-start text-xs font-normal"
+                                onClick={() => setDate({ from: subDays(new Date(), 180), to: new Date() })}
+                            >
+                                Últimos 6 meses
+                            </Button>
+                            <Button variant="ghost" size="sm" className="justify-start text-xs font-normal"
+                                onClick={() => setDate({ from: subDays(new Date(), 365), to: new Date() })}
+                            >
+                                Últimos 12 meses
+                            </Button>
+                        </div>
+                        <div className="p-3">
+                            <Calendar
+                                key={date?.from?.toString()}
+                                initialFocus
+                                mode="range"
+                                defaultMonth={date?.from}
+                                selected={date}
+                                onSelect={setDate}
+                                numberOfMonths={2}
+                                locale={ptBR}
+                            />
+                        </div>
+                    </div>
                 </PopoverContent>
             </Popover>
         </div>
