@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { PlusCircle, CheckCircle2, AlertCircle, Loader2 } from "lucide-react"
+import { CheckCircle2, AlertCircle, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -14,7 +14,6 @@ import {
     DialogTitle,
     DialogTrigger,
     DialogFooter,
-    DialogClose,
 } from "@/components/ui/dialog"
 import { HotmartTutorialSheet } from "./hotmart-tutorial"
 
@@ -55,10 +54,14 @@ export function IntegrationList({ existingIntegrations, orgId }: { existingInteg
                 const clientId = formData.get('client_id');
                 const clientSecret = formData.get('client_secret');
                 const basicToken = formData.get('basic_token');
+                const accessToken = formData.get('access_token');
+                const adAccountId = formData.get('ad_account_id');
 
                 if (clientId) data.append('client_id', clientId);
                 if (clientSecret) data.append('client_secret', clientSecret);
                 if (basicToken) data.append('basic_token', basicToken);
+                if (accessToken) data.append('access_token', accessToken);
+                if (adAccountId) data.append('ad_account_id', adAccountId);
             }
 
             const result = await createIntegration(data)

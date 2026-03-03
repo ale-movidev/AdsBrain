@@ -12,12 +12,6 @@ interface MetaInsight {
     date_stop: string
 }
 
-interface MetaCampaign {
-    id: string
-    name: string
-    objective: string
-    status: string
-}
 
 export class MetaApiClient {
     private accessToken: string
@@ -26,7 +20,8 @@ export class MetaApiClient {
 
     constructor(accessToken: string, adAccountId: string) {
         this.accessToken = accessToken
-        this.adAccountId = adAccountId
+        // Garante o prefixo act_ exigido pela Graph API
+        this.adAccountId = adAccountId.startsWith('act_') ? adAccountId : `act_${adAccountId}`
     }
 
     private async fetch(endpoint: string, params: Record<string, string> = {}) {
